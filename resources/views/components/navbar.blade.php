@@ -153,3 +153,54 @@
         </div>
     </div>
 </nav>
+
+<script>
+// Fallback mobile menu functionality (inline script for immediate availability)
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait a moment for other scripts to load
+    setTimeout(function() {
+        // Check if mobile menu functions exist, if not create them
+        if (typeof window.openMobileMenu === 'undefined') {
+            console.log('Creating fallback mobile menu functions...');
+            
+            window.openMobileMenu = function() {
+                const menu = document.getElementById('mobile-menu');
+                const hamburger = document.querySelector('.hamburger-icon');
+                if (menu) {
+                    menu.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                }
+                if (hamburger) hamburger.classList.add('open');
+            };
+            
+            window.closeMobileMenu = function() {
+                const menu = document.getElementById('mobile-menu');
+                const hamburger = document.querySelector('.hamburger-icon');
+                if (menu) {
+                    menu.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+                if (hamburger) hamburger.classList.remove('open');
+            };
+            
+            // Add event listeners
+            const menuBtn = document.getElementById('mobile-menu-btn');
+            const closeBtn = document.getElementById('mobile-menu-close');
+            
+            if (menuBtn) {
+                menuBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.openMobileMenu();
+                });
+            }
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.closeMobileMenu();
+                });
+            }
+        }
+    }, 500);
+});
+</script>

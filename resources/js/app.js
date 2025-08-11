@@ -6,6 +6,22 @@ document.addEventListener('DOMContentLoaded', function() {
     initMobileMenu();
     initLightbox();
     initScrollAnimations();
+    
+    // Extra safety check for mobile menu after a short delay
+    setTimeout(() => {
+        if (!window.mobileMenuInitialized) {
+            console.log('Retrying mobile menu initialization...');
+            initMobileMenu();
+        }
+    }, 1000);
+});
+
+// Backup initialization when window loads (for safety)
+window.addEventListener('load', function() {
+    if (!window.mobileMenuInitialized) {
+        console.log('Backup mobile menu initialization on window load...');
+        initMobileMenu();
+    }
 });
 
 // Navbar functionality
@@ -31,62 +47,97 @@ function initMobileMenu() {
     const mobileMenuClose = document.getElementById('mobile-menu-close');
     const hamburgerIcon = document.querySelector('.hamburger-icon');
     
-    console.log('Mobile menu elements:', { mobileMenuBtn, mobileMenu, mobileMenuClose, hamburgerIcon });
+    console.log('Mobile menu elements:', { 
+        btn: !!mobileMenuBtn, 
+        menu: !!mobileMenu, 
+        close: !!mobileMenuClose, 
+        hamburger: !!hamburgerIcon 
+    });
     
-    if (!mobileMenuBtn || !mobileMenu || !hamburgerIcon) {
-        console.log('Mobile menu elements not found');
+    if (!mobileMenuBtn || !mobileMenu) {
+        console.error('Required mobile menu elements not found');
         return;
     }
 
+    // Mark as initialized
+    window.mobileMenuInitialized = true;
     console.log('Mobile menu elements found, adding event listeners...');
 
-    // Toggle mobile menu
-    mobileMenuBtn.addEventListener('click', function(e) {
-        console.log('Mobile menu button clicked!');
-        e.preventDefault();
-        e.stopPropagation();
-        openMobileMenu();
-    });
+    // Global functions for mobile menu (accessible from inline scripts)
+    window.openMobileMenu = function() {
+        console.log('Opening mobile menu...');
+        mobileMenu.classList.add('active');
+        if (hamburgerIcon) hamburgerIcon.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        
+        // Add backdrop click functionality
+        setTimeout(() => {
+            mobileMenu.addEventListener('click', handleBackdropClick);
+        }, 100);
+    };
 
-    // Close button
+    window.closeMobileMenu = function() {
+        console.log('Closing mobile menu...');
+        mobileMenu.classList.remove('active');
+        if (hamburgerIcon) hamburgerIcon.classList.remove('open');
+        document.body.style.overflow = '';
+        
+        // Remove backdrop click listener
+        mobileMenu.removeEventListener('click', handleBackdropClick);
+    };
+
+    function handleBackdropClick(e) {
+        // Close menu if clicking on the backdrop (not on content)
+        const isContentArea = e.target.closest('.p-4, .bg-white');
+        if (!isContentArea && e.target === mobileMenu) {
+            window.closeMobileMenu();
+        }
+    }
+
+    // Remove existing event listeners to prevent duplicates
+    const newBtn = mobileMenuBtn.cloneNode(true);
+    mobileMenuBtn.parentNode.replaceChild(newBtn, mobileMenuBtn);
+    
     if (mobileMenuClose) {
-        mobileMenuClose.addEventListener('click', function(e) {
+        const newCloseBtn = mobileMenuClose.cloneNode(true);
+        mobileMenuClose.parentNode.replaceChild(newCloseBtn, mobileMenuClose);
+        
+        // Add close button event listener
+        newCloseBtn.addEventListener('click', function(e) {
             console.log('Mobile menu close button clicked!');
             e.preventDefault();
             e.stopPropagation();
-            closeMobileMenu();
+            window.closeMobileMenu();
         });
     }
 
-    function openMobileMenu() {
-        console.log('Opening mobile menu...');
-        mobileMenu.classList.add('open');
-        hamburgerIcon.classList.add('open');
-        document.body.style.overflow = 'hidden';
-    }
+    // Add menu button event listener
+    newBtn.addEventListener('click', function(e) {
+        console.log('Mobile menu button clicked!');
+        e.preventDefault();
+        e.stopPropagation();
+        window.openMobileMenu();
+    });
 
-    function closeMobileMenu() {
-        console.log('Closing mobile menu...');
-        mobileMenu.classList.remove('open');
-        hamburgerIcon.classList.remove('open');
-        document.body.style.overflow = '';
-    }
-
-    // Close menu when clicking on links
-    const mobileLinks = mobileMenu.querySelectorAll('a');
+    // Close menu when clicking on navigation links
+    const mobileLinks = mobileMenu.querySelectorAll('a[href^="#"]');
     mobileLinks.forEach(link => {
         link.addEventListener('click', function() {
             console.log('Mobile link clicked, closing menu...');
-            closeMobileMenu();
+            setTimeout(() => {
+                window.closeMobileMenu();
+            }, 100);
         });
     });
 
-    // Close menu when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!mobileMenuBtn.contains(e.target) && !mobileMenu.contains(e.target)) {
-            closeMobileMenu();
+    // Close menu with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && mobileMenu.classList.contains('active')) {
+            window.closeMobileMenu();
         }
     });
+
+    console.log('Mobile menu initialization complete!');
 }
 
 // Lightbox functionality
