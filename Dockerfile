@@ -1,56 +1,53 @@
-# Stage 1 - Build Frontend (Vite)
+# Stage 1: Build frontend assets
 FROM node:18 AS frontend
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# Build Vite assets for production
+ENV NODE_ENV=production
 RUN npm run build
 
-# Stage 2 - Backend (Laravel + PHP + Composer + Caddy)
+# Stage 2: Composer dependencies
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
+# Stage 3: Production image
 FROM php:8.2-fpm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git curl unzip libpng-dev libonig-dev libxml2-dev libzip-dev zip \
-    libcurl4-openssl-dev pkg-config libssl-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip gd
+    nginx supervisor git curl unzip libonig-dev libzip-dev zip \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-
-
-# Install Nginx and Supervisor
-RUN apt-get update \
-    && apt-get install -y nginx supervisor \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www
 
 # Copy app files
 COPY . .
 
-# Copy built frontend from Stage 1 (ke public/build)
+# Copy built frontend
 COPY --from=frontend /app/public/build ./public/build
 
-# Set permissions
+# Copy vendor
+COPY --from=vendor /app/vendor ./vendor
+
+# Nginx config
+COPY ./docker/nginx.conf /etc/nginx/nginx.conf
+
+# Supervisor config
+COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Laravel permissions
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
-
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
-
-# Laravel setup (cache config, route, view)
-RUN php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan view:cache
-
-
-# Copy Nginx config
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Copy Supervisor config
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord"]
+# Entrypoint script untuk migrate/seed dan start supervisor
+COPY ./docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+CMD ["/entrypoint.sh"]
