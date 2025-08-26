@@ -18,8 +18,14 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Install Caddy web server
-RUN curl -fsSL https://get.caddyserver.com | bash -s personal
+
+# Install Caddy web server (official apt repository)
+RUN apt-get update \
+    && apt-get install -y debian-keyring debian-archive-keyring curl gnupg2 \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | apt-key add - \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
+    && apt-get update \
+    && apt-get install -y caddy
 
 WORKDIR /var/www
 
