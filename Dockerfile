@@ -19,13 +19,11 @@ RUN apt-get update && apt-get install -y \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 
-# Install Caddy web server (official apt repository)
+
+# Install Nginx and Supervisor
 RUN apt-get update \
-    && apt-get install -y debian-keyring debian-archive-keyring curl gnupg2 \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | apt-key add - \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
-    && apt-get update \
-    && apt-get install -y caddy
+    && apt-get install -y nginx supervisor \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www
 
@@ -46,9 +44,13 @@ RUN php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache
 
-# Copy Caddyfile
-COPY Caddyfile /etc/caddy/Caddyfile
 
-EXPOSE 8080
+# Copy Nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
 
-CMD php-fpm & caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+# Copy Supervisor config
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 80
+
+CMD ["/usr/bin/supervisord"]
