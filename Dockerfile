@@ -36,8 +36,7 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 # Clean up cache dan optimize Laravel
 RUN php artisan config:cache && \
     php artisan route:cache && \
-    php artisan view:cache && \
-    php artisan optimize:clear
+    php artisan view:cache
 
 # Healthcheck untuk Render (opsional, tapi best practice)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
