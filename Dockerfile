@@ -1,49 +1,44 @@
-# Use official PHP image with extensions needed for Laravel
+# Stage 1 - Build Frontend (Vite)
+FROM node:18 AS frontend
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2 - Backend (Laravel + PHP + Composer)
 FROM php:8.2-fpm
 
 # Install system dependencies
-RUN apt-get update \
-    && apt-get install -y \
-        git \
-        curl \
-        libpng-dev \
-        libonig-dev \
-        libxml2-dev \
-        zip \
-        unzip \
-        npm \
-        nodejs \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+RUN apt-get update && apt-get install -y \
+    git curl unzip libpng-dev libonig-dev libxml2-dev libzip-dev zip \
+    npm nodejs \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip gd
 
 # Install Composer
-COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set working directory
 WORKDIR /var/www
 
-# Copy project files
+# Copy app files
 COPY . .
+
+# Copy built frontend from Stage 1 (HARUS ke public/build)
+COPY --from=frontend /app/public/build ./public/build
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Install Node dependencies and build assets
-RUN npm install && npm run build
-
 # Set permissions
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Clean up cache dan optimize Laravel
+# Laravel setup (cache config, route, view)
 RUN php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache
 
-# Healthcheck untuk Render (opsional, tapi best practice)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8080 || exit 1
-
 # Expose port 8080 for Render
 EXPOSE 8080
 
-# Use Laravel's built-in server for simplicity (or use Apache/Nginx if you prefer)
+# Use Laravel's built-in server for simplicity (not optimal for heavy production)
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
